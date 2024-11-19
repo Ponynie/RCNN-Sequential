@@ -36,13 +36,13 @@ Place the dataset file (`all_checkinsdict.json` or similar) in the `data/` direc
 ### Training the Model
 To train the RCNN model, use the command:
 ```sh
-python train.py --check
+python main.py --check
 ```
 The `--check` flag is optional and runs the model in "check" mode, which is a fast development run to test the pipeline without training for all epochs.
 
 ## Project Structure
 
-- `train.py`: Main script for training the model.
+- `main.py`: Main script for training the model.
 - `datamodule.py`: Data handling and preprocessing module.
 - `model.py`: Contains the RCNN model definition.
 - `hparam.py`: Contains the hyperparameters used for training.
@@ -53,7 +53,7 @@ The `--check` flag is optional and runs the model in "check" mode, which is a fa
 - `wandb_log/`: Directory to store Weights & Biases logs.
 
 ## Training the Model
-The training process is handled by the `train_model` function defined in `train.py`.
+The training process is handled by the `train_model` function defined in `main.py`.
 
 ### Steps for Training
 - **Initialize Data Module**: The `RecommendationDataModule` loads and processes the data.
