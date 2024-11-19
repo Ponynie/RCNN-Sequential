@@ -7,7 +7,7 @@ from torchmetrics.retrieval import RetrievalPrecision, RetrievalRecall
 from sklearn.model_selection import train_test_split
 from typing import List, Tuple
 import random
-import torch.nn.functional as F
+import torch.nn.functional as F #UWU
 
 class UserSequencesDataset(Dataset):
     def __init__(self, user_sequences, num_items, sequence_length, future_window):
