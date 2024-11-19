@@ -7,7 +7,7 @@ from torchmetrics.retrieval import RetrievalPrecision, RetrievalRecall
 from sklearn.model_selection import train_test_split
 from typing import List, Tuple
 import random
-import torch.nn.functional as F #UWU
+import torch.nn.functional as F
 
 class UserSequencesDataset(Dataset):
     def __init__(self, user_sequences, num_items, sequence_length, future_window):
@@ -258,7 +258,7 @@ if __name__ == "__main__":
 
     # Define parameters
     num_sequences = 100  # Number of sequences
-    sequence_length = 20  # Length of each sequence
+    sequence_length = 10  # Length of each sequence
     sequence_start = 1  # Start range
     sequence_end = 49  # End range
 
@@ -270,13 +270,13 @@ if __name__ == "__main__":
 
     # Hyperparameters
     NUM_ITEMS = 50
-    SEQUENCE_LENGTH = 15
+    SEQUENCE_LENGTH = 5
     FUTURE_WINDOW = 3
     EMBEDDING_DIM = 32
     HIDDEN_SIZE = 64
     NUM_LAYERS = 1
-    BATCH_SIZE = 4
-    MAX_EPOCHS = 10
+    BATCH_SIZE = 5
+    MAX_EPOCHS = 5
     TOP_K = [5, 10, 20]
 
     # Create data module with specific split ratios

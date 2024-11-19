@@ -7,57 +7,33 @@ from torchmetrics.retrieval import RetrievalPrecision, RetrievalRecall
 from sklearn.model_selection import train_test_split
 from typing import List, Tuple
 import random
-import torch.nn.functional as F 
-from torch.nn.utils.rnn import pad_sequence
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+import torch.nn.functional as F
 
 class UserSequencesDataset(Dataset):
-    def __init__(self, user_sequences, num_items, min_sequence_length, future_window):
+    def __init__(self, user_sequences, num_items, sequence_length, future_window):
         """
-        user_sequences: list of lists, where each inner list contains chronologically ordered item IDs for a user
+        user_sequences: list of lists, where each inner list contains item IDs for a user
         num_items: total number of unique items in the dataset
-        min_sequence_length: minimum length of sequence required before making predictions
+        sequence_length: number of interactions to consider for prediction
         future_window: number of future interactions to predict
         """
         self.sequences = []
         self.future_items = []
         
-        total_sequences = 0
-        filtered_sequences = 0
-        
-        for user_sequence in user_sequences:
-            # Skip if sequence is too short
-            if len(user_sequence) < min_sequence_length + future_window:
-                filtered_sequences += 1
-                continue
-                
-            # Validate item IDs
-            if not all(0 <= item < num_items for item in user_sequence):
-                filtered_sequences += 1
+        for sequence in user_sequences:
+            if len(sequence) < sequence_length + future_window:
                 continue
             
-            # For each user, create progressive sequences
-            # Start from min_sequence_length and go until we have enough items left for future_window
-            for t in range(min_sequence_length, len(user_sequence) - future_window + 1):
-                total_sequences += 1
+            for i in range(len(sequence) - sequence_length - future_window + 1):
+                input_seq = sequence[i:i + sequence_length]
+                future_seq = sequence[i + sequence_length:i + sequence_length + future_window]
                 
-                # Get all items from start until time t
-                current_sequence = user_sequence[:t]
-                
-                # Get future items (next future_window items after t)
-                future_items = user_sequence[t:t + future_window]
-                
-                # Create multi-hot encoding for future items
+                # Convert future items to multi-hot encoding
                 future_vector = torch.zeros(num_items)
-                future_vector[future_items] = 1
+                future_vector[future_seq] = 1
                 
-                self.sequences.append(current_sequence)
+                self.sequences.append(input_seq)
                 self.future_items.append(future_vector)
-        
-        #self.sequences = pad_sequence([torch.LongTensor(seq) for seq in self.sequences], batch_first=True)
-        print(f"Total sequences processed: {total_sequences}")
-        print(f"Sequences filtered out: {filtered_sequences}")
-        print(f"Final sequences kept: {len(self.sequences)}")
     
     def __len__(self):
         return len(self.sequences)
@@ -136,14 +112,12 @@ class RCNN_NextFuture(pl.LightningModule):
             f'recall@{k}': RetrievalRecall(top_k=k) for k in top_k
         })
         
-    def forward(self, x, lengths):
+    def forward(self, x):
         batch_size, seq_len = x.size()
         
         # Embedding and LSTM forward pass
         embedded = self.item_embeddings(x)  # (batch_size, seq_len, embedding_dim)
-        packed_embedded = pack_padded_sequence(embedded, lengths, batch_first=True, enforce_sorted=False)
-        packed_lstm_out, _ = self.lstm(packed_embedded)
-        lstm_out, _ = pad_packed_sequence(packed_lstm_out, batch_first=True)  # (batch_size, seq_len, hidden_size)
+        lstm_out, _ = self.lstm(embedded)  # (batch_size, seq_len, hidden_size)
         
         # Horizontal Convolution
         horizontal_input = lstm_out.unsqueeze(1)  # (batch_size, 1, seq_len, hidden_size)
@@ -180,24 +154,24 @@ class RCNN_NextFuture(pl.LightningModule):
             self.log(f'{prefix}{name}', metric, prog_bar=True)
     
     def training_step(self, batch, batch_idx):
-        sequences, targets, length = batch
-        logits = self(sequences, length)
+        sequences, targets = batch
+        logits = self(sequences)
         loss = self.criterion(logits, targets.float())
         self._compute_metrics(logits, targets, self.train_metrics, 'train_')
         self.log('train_loss', loss)
         return loss
     
     def validation_step(self, batch, batch_idx):
-        sequences, targets, length = batch
-        logits = self(sequences, length)
+        sequences, targets = batch
+        logits = self(sequences)
         loss = self.criterion(logits, targets.float())
         self._compute_metrics(logits, targets, self.val_metrics, 'val_')
         self.log('val_loss', loss)
         return loss
     
     def test_step(self, batch, batch_idx):
-        sequences, targets, length = batch
-        logits = self(sequences, length)
+        sequences, targets = batch
+        logits = self(sequences)
         loss = self.criterion(logits, targets.float())
         self._compute_metrics(logits, targets, self.test_metrics, 'test_')
         self.log('test_loss', loss)
@@ -271,22 +245,13 @@ class RecommendationDataModule(pl.LightningDataModule):
         )
     
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, collate_fn=self.pad_collate)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
     
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, collate_fn=self.pad_collate)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size)
     
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, collate_fn=self.pad_collate)
-    
-    def pad_collate(module, batch):
-        (xx, yy) = zip(*batch)
-        x_lens = [len(x) for x in xx]
-
-        xx_pad = pad_sequence(xx, batch_first=True, padding_value=0)
-        yy_pad = pad_sequence(yy, batch_first=True, padding_value=0)
-
-        return xx_pad, yy_pad, x_lens
+        return DataLoader(self.test_dataset, batch_size=self.batch_size)
 
 # Example usage
 if __name__ == "__main__":
@@ -298,19 +263,44 @@ if __name__ == "__main__":
     sequence_end = 49  # End range
 
     # Generate the sequences
-    user_sequences = [
-        [random.randint(sequence_start, sequence_end) for _ in range(sequence_length)]
-        for _ in range(num_sequences)
-    ]
+    import json
+    pathlist=['data/all_checkinsdict.json','data/gowalladict.json']
+    path=pathlist[0]
+
+    def extract_dict():
+        # Read dictionary from the JSON file
+        with open(path, 'r') as file:
+            loaded_dict = json.load(file)
+        itemlist=[]
+        for i in loaded_dict:
+            itemlist.append(loaded_dict[i])
+        return itemlist
+    
+    def findUniqueItem():
+        uniqueItem=[]
+        with open(path, 'r') as file:
+            loaded_dict = json.load(file)
+        for i in loaded_dict:
+            for j in loaded_dict[i]:
+                if j not in uniqueItem:
+                    uniqueItem.append(j)
+            #     print(j)
+            # print(i)
+            # count+=1
+            # if count>2:
+            #     break
+        return len(uniqueItem)
+
+    user_sequences=extract_dict()
+    NUM_ITEMS=findUniqueItem() + 1
 
     # Hyperparameters
-    NUM_ITEMS = 50
-    MIN_SEQUENCE_LENGTH = 3
+    SEQUENCE_LENGTH = 40
     FUTURE_WINDOW = 3
     EMBEDDING_DIM = 32
     HIDDEN_SIZE = 64
     NUM_LAYERS = 1
-    BATCH_SIZE = 4
+    BATCH_SIZE = 32
     MAX_EPOCHS = 10
     TOP_K = [5, 10, 20]
 
@@ -318,7 +308,7 @@ if __name__ == "__main__":
     data_module = RecommendationDataModule(
         user_sequences=user_sequences,
         num_items=NUM_ITEMS,
-        sequence_length=MIN_SEQUENCE_LENGTH,
+        sequence_length=SEQUENCE_LENGTH,
         future_window=FUTURE_WINDOW,
         batch_size=BATCH_SIZE,
         train_ratio=0.7,
