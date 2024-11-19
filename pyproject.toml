@@ -1,0 +1,14 @@
+[project]
+name = "rcnn-sequential"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "lightning>=2.4.0",
+    "scikit-learn>=1.5.2",
+    "torch>=2.5.1",
+    "torchaudio>=2.5.1",
+    "torcheval>=0.0.7",
+    "torchvision>=0.20.1",
+]
