@@ -36,7 +36,7 @@ Place the dataset file (`all_checkinsdict.json` or similar) in the `data/` direc
 ### Training the Model
 To train the RCNN model, use the command:
 ```sh
-python main.py --check
+python src/main.py --check
 ```
 The `--check` flag is optional and runs the model in "check" mode, which is a fast development run to test the pipeline without training for all epochs.
 

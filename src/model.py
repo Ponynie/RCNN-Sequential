@@ -34,7 +34,7 @@ class RCNN_NextFuture(pl.LightningModule):
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
-            lstm_dropout=lstm_dropout if num_layers > 1 else 0
+            dropout=lstm_dropout if num_layers > 1 else 0
         )
         
         # Horizontal Convolution Layer
