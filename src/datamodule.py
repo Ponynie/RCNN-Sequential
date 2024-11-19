@@ -86,42 +86,44 @@ class RecommendationDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
     
     def setup(self, stage=None):
-        # First split: train and temp (val + test)
-        train_sequences, temp_sequences = train_test_split(
-            self.user_sequences,
-            train_size=self.train_ratio,
-            random_state=self.random_state
-        )
         
-        # Second split: val and test from temp
-        val_ratio_adjusted = self.val_ratio / (self.val_ratio + self.test_ratio)
-        val_sequences, test_sequences = train_test_split(
-            temp_sequences,
-            train_size=val_ratio_adjusted,
-            random_state=self.random_state
-        )
+        if stage == 'fit' or stage is None:
+            # First split: train and temp (val + test)
+            train_sequences, temp_sequences = train_test_split(
+                self.user_sequences,
+                train_size=self.train_ratio,
+                random_state=self.random_state
+            )
+            
+            # Second split: val and test from temp
+            val_ratio_adjusted = self.val_ratio / (self.val_ratio + self.test_ratio)
+            val_sequences, self.test_sequences = train_test_split(
+                temp_sequences,
+                train_size=val_ratio_adjusted,
+                random_state=self.random_state
+            )
         
-        # Create datasets
-        self.train_dataset = UserSequencesDataset(
-            train_sequences,
-            self.num_items,
-            self.sequence_length,
-            self.future_window
-        )
+            # Create datasets
+            self.train_dataset = UserSequencesDataset(
+                train_sequences,
+                self.num_items,
+                self.sequence_length,
+                self.future_window
+            )
         
-        self.val_dataset = UserSequencesDataset(
-            val_sequences,
-            self.num_items,
-            self.sequence_length,
-            self.future_window
-        )
-        
-        self.test_dataset = UserSequencesDataset(
-            test_sequences,
-            self.num_items,
-            self.sequence_length,
-            self.future_window
-        )
+            self.val_dataset = UserSequencesDataset(
+                val_sequences,
+                self.num_items,
+                self.sequence_length,
+                self.future_window
+            )
+        elif stage == 'test':
+            self.test_dataset = UserSequencesDataset(
+                self.test_sequences,
+                self.num_items,
+                self.sequence_length,
+                self.future_window
+            )
     
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, collate_fn=self.pad_collate, num_workers=self.num_workers)
