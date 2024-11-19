@@ -8,7 +8,7 @@ class Hyperparameters:
     max_epochs = 100
     min_epochs = 10
     batch_size = 32
-    num_workers = int(os.cpu_count() / 2)
+    num_workers = 0 #int(os.cpu_count() / 2)
     train_ratio = 0.7
     val_ratio = 0.2
     test_ratio = 0.1

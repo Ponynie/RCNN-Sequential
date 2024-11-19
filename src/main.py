@@ -66,8 +66,11 @@ def train_model(check_mode: bool) -> None:
 
     # Train and test the model
     trainer.fit(model, datamodule=data_module)
-    trainer.validate(model, datamodule=data_module, ckpt_path='best')
-    # trainer.test(model, datamodule=data_module, ckpt_path='best')
+    if check_mode:
+        trainer.test(model, datamodule=data_module)
+    else:
+        trainer.validate(model, datamodule=data_module, ckpt_path='best')
+        trainer.test(model, datamodule=data_module, ckpt_path='best')
 
 def _extract_data_from_json(path: str) -> list[list[int]]:
     # Read dictionary from the JSON file

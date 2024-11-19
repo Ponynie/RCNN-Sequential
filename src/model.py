@@ -121,14 +121,14 @@ class RCNN_NextFuture(pl.LightningModule):
         # Update metrics
         for name, metric in metrics_dict.items():
             metric(preds, target_labels, indexes=indexes)
-            self.log(f'{prefix}{name}', metric, prog_bar=True)
+            self.log(f'{prefix}{name}', metric, on_epoch=True, logger=True, prog_bar=False, batch_size=batch_size)
     
     def training_step(self, batch, batch_idx):
         sequences, targets, length = batch
         logits = self(sequences, length)
         loss = self.criterion(logits, targets.float())
         self._compute_metrics(logits, targets, self.train_metrics, 'train_')
-        self.log('train_loss', loss)
+        self.log('train_loss', loss, on_step=True, on_epoch=True, logger=True, batch_size=sequences.size(0))
         return loss
     
     def validation_step(self, batch, batch_idx):
@@ -136,7 +136,7 @@ class RCNN_NextFuture(pl.LightningModule):
         logits = self(sequences, length)
         loss = self.criterion(logits, targets.float())
         self._compute_metrics(logits, targets, self.val_metrics, 'val_')
-        self.log('val_loss', loss)
+        self.log('val_loss', loss, prog_bar=True, logger=True, batch_size=sequences.size(0))
         return loss
     
     def test_step(self, batch, batch_idx):
@@ -144,7 +144,7 @@ class RCNN_NextFuture(pl.LightningModule):
         logits = self(sequences, length)
         loss = self.criterion(logits, targets.float())
         self._compute_metrics(logits, targets, self.test_metrics, 'test_')
-        self.log('test_loss', loss)
+        self.log('test_loss', loss, prog_bar=True, logger=True, batch_size=sequences.size(0))
         return loss
     
     def configure_optimizers(self):
