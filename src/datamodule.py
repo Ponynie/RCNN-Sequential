@@ -59,30 +59,31 @@ class UserSequencesDataset(Dataset):
         return torch.LongTensor(self.sequences[idx]), self.future_items[idx]
 
 class RecommendationDataModule(pl.LightningDataModule):
-    def __init__(
-        self,
-        user_sequences: List[List[int]],
-        num_items: int,
-        sequence_length: int,
-        future_window: int,
-        batch_size: int = 32,
-        train_ratio: float = 0.7,
-        val_ratio: float = 0.2,
-        test_ratio: float = 0.1,
-        random_state: int = 42
-    ):
+    def __init__(self,
+                 user_sequences: List[List[int]],
+                 num_items: int,
+                 min_sequence_length: int,
+                 future_window: int,
+                 batch_size: int = 32,
+                 train_ratio: float = 0.7,
+                 val_ratio: float = 0.2,
+                 test_ratio: float = 0.1,
+                 random_state: int = 42,
+                 num_workers: int = 1):
+        
         super().__init__()
         assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-5, "Split ratios must sum to 1"
         
         self.user_sequences = user_sequences
         self.num_items = num_items
-        self.sequence_length = sequence_length
+        self.sequence_length = min_sequence_length
         self.future_window = future_window
         self.batch_size = batch_size
         self.train_ratio = train_ratio
         self.val_ratio = val_ratio
         self.test_ratio = test_ratio
         self.random_state = random_state
+        self.num_workers = num_workers
     
     def setup(self, stage=None):
         # First split: train and temp (val + test)
@@ -123,13 +124,13 @@ class RecommendationDataModule(pl.LightningDataModule):
         )
     
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, collate_fn=self.pad_collate)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, collate_fn=self.pad_collate, num_workers=self.num_workers)
     
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, collate_fn=self.pad_collate)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, collate_fn=self.pad_collate, num_workers=self.num_workers)
     
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, collate_fn=self.pad_collate)
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, collate_fn=self.pad_collate, num_workers=self.num_workers)
     
     def pad_collate(module, batch):
         (xx, yy) = zip(*batch)

@@ -6,20 +6,24 @@ from typing import List
 import torch.nn.functional as F 
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 class RCNN_NextFuture(pl.LightningModule):
-    def __init__(
-        self, 
-        num_items: int,
-        embedding_dim: int,
-        hidden_size: int,
-        num_layers: int,
-        dropout: float = 0.1,
-        top_k: List[int] = [5, 10, 20],
-        conv_out_channels: int = 8, # hn
-        horizontal_filter_size: int = 3, # w
-        vertical_filter_size: int = 3 # k
-    ):
+    def __init__(self, 
+                 num_items: int,
+                 embedding_dim: int,
+                 hidden_size: int,
+                 num_layers: int,
+                 lstm_dropout: float = 0.1,
+                 top_k: List[int] = [1, 5, 10],
+                 conv_out_channels: int = 8, # n
+                 horizontal_filter_size: int = 64, # w
+                 vertical_filter_size: int = 4, # k
+                 learning_rate: float = 0.001,
+                 weight_decay: float = 0.001):
+         
         super().__init__()
         self.save_hyperparameters()
+        
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
         
         # Item embedding layer
         self.item_embeddings = nn.Embedding(num_items, embedding_dim)
@@ -30,7 +34,7 @@ class RCNN_NextFuture(pl.LightningModule):
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
-            dropout=dropout if num_layers > 1 else 0
+            lstm_dropout=lstm_dropout if num_layers > 1 else 0
         )
         
         # Horizontal Convolution Layer
@@ -144,4 +148,4 @@ class RCNN_NextFuture(pl.LightningModule):
         return loss
     
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=0.001)
+        return torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)
