@@ -28,5 +28,4 @@ class Hyperparameters:
     embedding_dim = 128
     hidden_size = 256
     num_lstm_layers = 1
-    top_k = [1, 5, 10]
     lstm_dropout = 0.1

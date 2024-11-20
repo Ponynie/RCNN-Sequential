@@ -1,12 +1,12 @@
 import argparse
 import os
 import torch
-from datamodule import RecommendationDataModule
-from model import RCNN_NextFuture
+from datamoduleHR import RecommendationDataModule
+from modelHR import RCNN_NextItem
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning import Trainer
-from hparam import Hyperparameters
+from hparamHR import Hyperparameters
 import json
 #Meow
 def train_model(check_mode: bool) -> None:
@@ -26,7 +26,6 @@ def train_model(check_mode: bool) -> None:
         user_sequences=user_sequences,
         num_items=num_items,
         min_sequence_length=Hyperparameters.min_sequence_length,
-        future_window=Hyperparameters.future_window,
         batch_size=Hyperparameters.batch_size,
         train_ratio=Hyperparameters.train_ratio,
         val_ratio=Hyperparameters.val_ratio,
@@ -35,13 +34,12 @@ def train_model(check_mode: bool) -> None:
         num_workers=Hyperparameters.num_workers
     )
     # Initialize the model
-    model = RCNN_NextFuture(
+    model = RCNN_NextItem(
         num_items=num_items,
         embedding_dim=Hyperparameters.embedding_dim,
         hidden_size=Hyperparameters.hidden_size,
         num_layers=Hyperparameters.num_lstm_layers,
         lstm_dropout=Hyperparameters.lstm_dropout,
-        top_k=Hyperparameters.top_k,
         conv_out_channels=Hyperparameters.n,
         horizontal_filter_size=Hyperparameters.w,
         vertical_filter_size=Hyperparameters.k,

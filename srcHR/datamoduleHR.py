@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 from typing import List
 from torch.nn.utils.rnn import pad_sequence
 class UserSequencesDataset(Dataset):
-    def __init__(self, user_sequences, num_items, min_sequence_length, future_window):
+    def __init__(self, user_sequences, num_items, min_sequence_length):
         """
         user_sequences: list of lists, where each inner list contains chronologically ordered item IDs for a user
         num_items: total number of unique items in the dataset
@@ -20,7 +20,7 @@ class UserSequencesDataset(Dataset):
         
         for user_sequence in user_sequences:
             # Skip if sequence is too short
-            if len(user_sequence) < min_sequence_length + future_window:
+            if len(user_sequence) < min_sequence_length + 1:
                 filtered_sequences += 1
                 continue
                 
@@ -31,14 +31,14 @@ class UserSequencesDataset(Dataset):
             
             # For each user, create progressive sequences
             # Start from min_sequence_length and go until we have enough items left for future_window
-            for t in range(min_sequence_length, len(user_sequence) - future_window + 1):
+            for t in range(min_sequence_length, len(user_sequence) - 1 + 1):
                 total_sequences += 1
                 
                 # Get all items from start until time t
                 current_sequence = user_sequence[:t]
                 
                 # Get future items (next future_window items after t)
-                future_items = user_sequence[t:t + future_window]
+                future_items = user_sequence[t:t + 1]
                 
                 # Create multi-hot encoding for future items
                 future_vector = torch.zeros(num_items)
@@ -63,7 +63,6 @@ class RecommendationDataModule(pl.LightningDataModule):
                  user_sequences: List[List[int]],
                  num_items: int,
                  min_sequence_length: int,
-                 future_window: int,
                  batch_size: int = 32,
                  train_ratio: float = 0.7,
                  val_ratio: float = 0.2,
@@ -77,7 +76,6 @@ class RecommendationDataModule(pl.LightningDataModule):
         self.user_sequences = user_sequences
         self.num_items = num_items
         self.sequence_length = min_sequence_length
-        self.future_window = future_window
         self.batch_size = batch_size
         self.train_ratio = train_ratio
         self.val_ratio = val_ratio
@@ -108,21 +106,18 @@ class RecommendationDataModule(pl.LightningDataModule):
                 train_sequences,
                 self.num_items,
                 self.sequence_length,
-                self.future_window
             )
         
             self.val_dataset = UserSequencesDataset(
                 val_sequences,
                 self.num_items,
                 self.sequence_length,
-                self.future_window
             )
         elif stage == 'test':
             self.test_dataset = UserSequencesDataset(
                 self.test_sequences,
                 self.num_items,
                 self.sequence_length,
-                self.future_window
             )
     
     def train_dataloader(self):
