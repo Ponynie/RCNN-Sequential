@@ -8,7 +8,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning import Trainer
 from hparam import Hyperparameters
 import json
-
+#Meow
 def train_model(check_mode: bool) -> None:
     message = '-' * 20 + 'Running in check mode:' + '-' * 20 if check_mode else '-' * 20 + 'Running in real mode:' + '-' * 20
     print(message)
