@@ -101,7 +101,7 @@ if __name__ == '__main__':
 # train_model(check_mode=True)
 # for d [0, 1]
 #     for i [8 16]
-latentFactorSize = [8,16,32,64]
+latentFactorSize = Hyperparameters.embedding_dim
 set_path = [0,1]
 for latent in range(len(latentFactorSize)):
     for p in range(len(set_path)):

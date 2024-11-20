@@ -25,7 +25,7 @@ class Hyperparameters:
     k = 4 # vertical_filter_size
     min_sequence_length = k
     future_window = 10
-    embedding_dim = 128
+    embedding_dim = [8,16,32,64]
     hidden_size = 256
     num_lstm_layers = 1
     lstm_dropout = 0.1
