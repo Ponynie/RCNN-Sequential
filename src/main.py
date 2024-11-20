@@ -4,7 +4,7 @@ import torch
 from datamodule import RecommendationDataModule
 from model import RCNN_NextFuture
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
-# from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning import Trainer
 from hparam import Hyperparameters
 import json
@@ -51,7 +51,7 @@ def train_model(check_mode: bool) -> None:
 
     # Set up callbacks and logger
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
-    #? wandb_logger = WandbLogger(project='RCNN-Recommender', save_dir='wandb_log')
+    wandb_logger = WandbLogger(project='RCNN-Recommender', save_dir='wandb_log')
     check_point = ModelCheckpoint(monitor='val_loss')
 
     # Initialize the trainer
@@ -59,7 +59,7 @@ def train_model(check_mode: bool) -> None:
                       accelerator='auto',
                       max_epochs=Hyperparameters.max_epochs,
                       min_epochs=Hyperparameters.min_epochs,
-                      logger= True, #? wandb_logger,
+                      logger= wandb_logger,
                       callbacks=[lr_monitor, check_point],
                       fast_dev_run=check_mode,
                       log_every_n_steps=50)
@@ -97,3 +97,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     train_model(check_mode=args.check)
+
+# train_model(check_mode=True)
