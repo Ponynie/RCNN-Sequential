@@ -9,14 +9,14 @@ from pytorch_lightning import Trainer
 from hparamHR import Hyperparameters
 import json
 #Meow
-def train_model(check_mode: bool) -> None:
+def train_model(check_mode: bool,latentFac:int,path_index:int) -> None:
     message = '-' * 20 + 'Running in check mode:' + '-' * 20 if check_mode else '-' * 20 + 'Running in real mode:' + '-' * 20
     print(message)
     print('Training the RCNN model...')
 
     # Define paths
     path_list = ['data/all_checkinsdict.json', 'data/gowalladict.json']
-    data_dir = path_list[0] #! Change this to the path of the data you want to use
+    data_dir = path_list[path_index] #! Change this to the path of the data you want to use
     
     user_sequences = _extract_data_from_json(data_dir)
     num_items = _count_unique_item(data_dir) + 1
@@ -36,7 +36,7 @@ def train_model(check_mode: bool) -> None:
     # Initialize the model
     model = RCNN_NextItem(
         num_items=num_items,
-        embedding_dim=Hyperparameters.embedding_dim,
+        embedding_dim=latentFac,
         hidden_size=Hyperparameters.hidden_size,
         num_layers=Hyperparameters.num_lstm_layers,
         lstm_dropout=Hyperparameters.lstm_dropout,
@@ -101,3 +101,8 @@ if __name__ == '__main__':
 # train_model(check_mode=True)
 # for d [0, 1]
 #     for i [8 16]
+latentFactorSize = [8,16,32,64]
+set_path = [0,1]
+for latent in range(len(latentFactorSize)):
+    for p in range(len(set_path)):
+        train_model(check_mode=args.check,latentFac=latentFactorSize[latent],path_index=set_path[p])
