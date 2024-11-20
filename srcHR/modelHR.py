@@ -4,6 +4,41 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torchmetrics.retrieval import RetrievalHitRate
+from torcheval.metrics.functional import hit_rate
+
+import torch
+
+def ndcg(predictions: torch.Tensor, 
+         target: torch.Tensor, 
+         k: int = 10) -> torch.Tensor:
+    """
+    Compute Normalized Discounted Cumulative Gain (NDCG) for each sample in batch.
+    
+    Args:
+        predictions: Model predictions/logits tensor of shape (batch_size, num_items)
+        target: Ground truth labels tensor of shape (batch_size,)
+        k: Number of items to consider for NDCG calculation
+    
+    Returns:
+        Tensor containing NDCG@k scores for each sample in batch
+    """
+    batch_size = predictions.size(0)
+    
+    # Get top k predicted items
+    _, indices = torch.topk(predictions, k, dim=1)
+    
+    # Create a binary tensor indicating if prediction matches target
+    hits = (indices == target.unsqueeze(1)).float()
+    
+    # Calculate position-based discounts
+    position_discounts = torch.log2(torch.arange(k, device=predictions.device).float() + 2.0)
+    dcg = (hits / position_discounts).sum(dim=1)
+    
+    # Calculate ideal DCG (target in first position)
+    idcg = (1 / torch.log2(torch.tensor(2.0, device=predictions.device))).expand(batch_size)
+    
+    # Return NDCG scores
+    return dcg / idcg
 
 class RCNN_NextItem(pl.LightningModule):
     def __init__(self, 
@@ -23,6 +58,7 @@ class RCNN_NextItem(pl.LightningModule):
         
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
+        self.num_items = num_items
         
         # Item embedding layer
         self.item_embeddings = nn.Embedding(num_items, embedding_dim)
@@ -52,19 +88,11 @@ class RCNN_NextItem(pl.LightningModule):
         
         self.vertical_filter_size = vertical_filter_size
         
-        # Final prediction layer - no sigmoid needed as we'll use CrossEntropyLoss
+        # Final prediction layer
         self.prediction = nn.Linear(2 * hidden_size + conv_out_channels, num_items)
         
-        # Cross Entropy loss (includes softmax)
+        # Cross Entropy loss (target should be class indices)
         self.criterion = nn.CrossEntropyLoss()
-        
-        # Initialize HR@10 tracking variables
-        self.train_hits = 0
-        self.train_total = 0
-        self.val_hits = 0
-        self.val_total = 0
-        self.test_hits = 0
-        self.test_total = 0
         
     def forward(self, x, lengths):
         batch_size, seq_len = x.size()
@@ -94,80 +122,52 @@ class RCNN_NextItem(pl.LightningModule):
         # Final prediction (logits)
         logits = self.prediction(combined)
         return logits
-
-    def compute_hr10(self, logits, targets):
-        """Compute Hit Rate @10"""
-        # Get top 10 predictions
-        _, top10_indices = torch.topk(logits, k=10, dim=1)
-        # Check if target is in top 10 predictions
-        hits = sum([target in top10 for top10, target in zip(top10_indices, targets)])
-        return hits, len(targets)
     
     def training_step(self, batch, batch_idx):
-        sequences, target, length = batch
+        sequences, target, length = batch  # target is class index
         logits = self(sequences, length)
         loss = self.criterion(logits, target)
         
         # Compute HR@10
-        hits, total = self.compute_hr10(logits, target)
-        self.train_hits += hits
-        self.train_total += total
-        
-        # Log loss
+        hr = hit_rate(logits, target, k=10).mean()
+        ndcg_sc = ndcg(logits, target, k=10).mean()
+        # Log metrics
         self.log('train_loss', loss, on_step=True, on_epoch=True, logger=True, batch_size=sequences.size(0))
+        self.log('train_hr@10', hr, on_epoch=True, logger=True, batch_size=sequences.size(0))
+        self.log('train_ndcg@10', ndcg_sc, on_epoch=True, logger=True, batch_size=sequences.size(0))
         return loss
     
     def validation_step(self, batch, batch_idx):
-        sequences, target, length = batch
+        sequences, target, length = batch  # target is class index
         logits = self(sequences, length)
         loss = self.criterion(logits, target)
         
         # Compute HR@10
-        hits, total = self.compute_hr10(logits, target)
-        self.val_hits += hits
-        self.val_total += total
+        hr = hit_rate(logits, target, k=10).mean()
+        # Compute NDCG@10
+        ndcg_sc = ndcg(logits, target, k=10).mean()
         
-        # Log loss
-        self.log('val_loss', loss, prog_bar=True, logger=True, batch_size=sequences.size(0))
+        # Log metrics
+        self.log('val_loss', loss, on_epoch=True, logger=True, prog_bar=True, batch_size=sequences.size(0))
+        self.log('val_hr@10', hr, on_epoch=True, logger=True, batch_size=sequences.size(0))
+        self.log('val_ndcg@10', ndcg_sc, on_epoch=True, logger=True, batch_size=sequences.size(0))
         return loss
     
     def test_step(self, batch, batch_idx):
-        sequences, target, length = batch
+        sequences, target, length = batch  # target is class index
         logits = self(sequences, length)
         loss = self.criterion(logits, target)
         
         # Compute HR@10
-        hits, total = self.compute_hr10(logits, target)
-        self.test_hits += hits
-        self.test_total += total
+        hr = hit_rate(logits, target, k=10).mean()
+        # Compute NDCG@10
+        ndcg_sc = ndcg(logits, target, k=10).mean()
         
-        # Log loss
-        self.log('test_loss', loss, prog_bar=True, logger=True, batch_size=sequences.size(0))
+        # Log metrics
+        self.log('test_loss', loss, on_epoch=True, logger=True, prog_bar=True, batch_size=sequences.size(0))
+        self.log('test_hr@10', hr, on_epoch=True, logger=True, batch_size=sequences.size(0))
+        self.log('test_ndcg@10', ndcg_sc, on_epoch=True, logger=True, batch_size=sequences.size(0))
         return loss
-    
-    def on_train_epoch_end(self):
-        # Compute and log HR@10 for training
-        hr10 = self.train_hits / self.train_total if self.train_total > 0 else 0
-        self.log('train_hr10', hr10, prog_bar=True)
-        # Reset counters
-        self.train_hits = 0
-        self.train_total = 0
-        
-    def on_validation_epoch_end(self):
-        # Compute and log HR@10 for validation
-        hr10 = self.val_hits / self.val_total if self.val_total > 0 else 0
-        self.log('val_hr10', hr10, prog_bar=True)
-        # Reset counters
-        self.val_hits = 0
-        self.val_total = 0
-        
-    def on_test_epoch_end(self):
-        # Compute and log HR@10 for test
-        hr10 = self.test_hits / self.test_total if self.test_total > 0 else 0
-        self.log('test_hr10', hr10, prog_bar=True)
-        # Reset counters
-        self.test_hits = 0
-        self.test_total = 0
     
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.learning_rate, weight_decay=self.weight_decay)

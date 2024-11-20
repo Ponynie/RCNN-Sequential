@@ -93,11 +93,11 @@ def _count_unique_item(path: str) -> int:
                 uniqueItem.append(j)
     return len(uniqueItem)
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Train the RCNN model')
-    parser.add_argument('--check', action='store_true', help='Run in check mode (fast dev run)')
-    args = parser.parse_args()
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser(description='Train the RCNN model')
+#     parser.add_argument('--check', action='store_true', help='Run in check mode (fast dev run)')
+#     args = parser.parse_args()
 
-    train_model(check_mode=args.check)
+#     train_model(check_mode=args.check)
 
-# train_model(check_mode=True)
+train_model(check_mode=True)
