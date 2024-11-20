@@ -78,8 +78,9 @@ def _extract_data_from_json(path: str) -> list[list[int]]:
     with open(path, 'r') as file:
         loaded_dict = json.load(file)
     itemlist=[]
-    for i in loaded_dict:
-        itemlist.append(loaded_dict[i])
+    for i in loaded_dict :
+        if(len(loaded_dict[i])<50):
+            itemlist.append(loaded_dict[i])
     return itemlist
 
 def _count_unique_item(path: str) -> int:
