@@ -62,7 +62,7 @@ def train_model(check_mode: bool) -> None:
                       logger= wandb_logger,
                       callbacks=[lr_monitor, check_point],
                       fast_dev_run=check_mode,
-                      log_every_n_steps=25,
+                      log_every_n_steps=50,
                       profiler='simple')
 
     # Train and test the model
