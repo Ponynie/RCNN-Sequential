@@ -98,30 +98,30 @@ class RCNN_NextItem(pl.LightningModule):
         batch_size, seq_len = x.size()
         
         # Embedding and LSTM forward pass
-        embedded = self.item_embeddings(x)
+        embedded = self.item_embeddings(x) # (batch_size, seq_len, embedding_dim)
         packed_embedded = pack_padded_sequence(embedded, lengths, batch_first=True, enforce_sorted=False)
         packed_lstm_out, _ = self.lstm(packed_embedded)
-        lstm_out, _ = pad_packed_sequence(packed_lstm_out, batch_first=True)
+        lstm_out, _ = pad_packed_sequence(packed_lstm_out, batch_first=True) # (batch_size, seq_len, hidden_size)
         
         # Horizontal Convolution
-        horizontal_input = lstm_out.unsqueeze(1)
-        horizontal_conv_out = F.relu(self.horizontal_conv(horizontal_input))[:, :, -1, :]
-        horizontal_conv_out = torch.sum(horizontal_conv_out, dim=2)
+        horizontal_input = lstm_out.unsqueeze(1) # (batch_size, 1, seq_len, hidden_size)
+        horizontal_conv_out = F.relu(self.horizontal_conv(horizontal_input))[:, :, -1, :] # (batch_size, conv_out_channels, new_seq_len)
+        horizontal_conv_out = torch.sum(horizontal_conv_out, dim=2) # (batch_size, conv_out_channels)
         
         # Vertical Convolution
-        vertical_input = lstm_out.unsqueeze(1)[:, :, -self.vertical_filter_size:, :]
-        vertical_conv_out = F.relu(self.vertical_conv(vertical_input))
-        vertical_conv_out = vertical_conv_out.view(batch_size, -1)
+        vertical_input = lstm_out.unsqueeze(1)[:, :, -self.vertical_filter_size:, :]  # (batch_size, 1, vertical_filter_size, hidden_size)
+        vertical_conv_out = F.relu(self.vertical_conv(vertical_input)) # (batch_size, 1, 1, hidden_size)
+        vertical_conv_out = vertical_conv_out.view(batch_size, -1) # Flatten # (batch_size, hidden_size)
         
         # Concatenate LSTM output with convolution outputs
-        last_hidden = lstm_out[:, -1, :]
-        vertical_conv_out = torch.mul(vertical_conv_out, last_hidden)
+        last_hidden = lstm_out[:, -1, :] # (batch_size, hidden_size)
+        vertical_conv_out = torch.mul(vertical_conv_out, last_hidden) # (batch_size, hidden_size)
         
-        combined = torch.cat([horizontal_conv_out, last_hidden, vertical_conv_out], dim=1)
+        combined = torch.cat([horizontal_conv_out, last_hidden, vertical_conv_out], dim=1) # (batch_size, 2 * hidden_size + conv_out_channels)
         
         # Final prediction (logits)
-        logits = self.prediction(combined)
-        return logits
+        logits = self.prediction(combined) # (batch_size, num_items)
+        return logits # (batch_size, num_items)
     
     def training_step(self, batch, batch_idx):
         sequences, target, length = batch  # target is class index
