@@ -1,12 +1,12 @@
 import argparse
 import os
 import torch
-from datamoduleHR import RecommendationDataModule
-from modelHR import RCNN_NextItem
+from srcFI.datamoduleFI import RecommendationDataModule
+from srcFI.modelFI import RCNN_NextItem
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning import Trainer
-from hparamHR import Hyperparameters
+from srcFI.hparamFI import Hyperparameters
 import json
 #Meow
 def train_model(check_mode: bool) -> None:
