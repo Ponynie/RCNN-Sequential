@@ -7,6 +7,7 @@ from torchmetrics.retrieval import RetrievalHitRate
 from torcheval.metrics.functional import hit_rate
 
 import torch
+# modelFI.py
 
 def ndcg(predictions: torch.Tensor, 
          target: torch.Tensor, 
@@ -94,14 +95,12 @@ class RCNN_NextItem(pl.LightningModule):
         # Cross Entropy loss (target should be class indices)
         self.criterion = nn.CrossEntropyLoss()
         
-    def forward(self, x, lengths):
+    def forward(self, x):
         batch_size, seq_len = x.size()
         
         # Embedding and LSTM forward pass
         embedded = self.item_embeddings(x) # (batch_size, seq_len, embedding_dim)
-        packed_embedded = pack_padded_sequence(embedded, lengths, batch_first=True, enforce_sorted=False)
-        packed_lstm_out, _ = self.lstm(packed_embedded)
-        lstm_out, _ = pad_packed_sequence(packed_lstm_out, batch_first=True) # (batch_size, seq_len, hidden_size)
+        lstm_out, _ = self.lstm(embedded)  # (batch_size, seq_len, hidden_size)
         
         # Horizontal Convolution
         horizontal_input = lstm_out.unsqueeze(1) # (batch_size, 1, seq_len, hidden_size)
@@ -124,8 +123,8 @@ class RCNN_NextItem(pl.LightningModule):
         return logits # (batch_size, num_items)
     
     def training_step(self, batch, batch_idx):
-        sequences, target, length = batch  # target is class index
-        logits = self(sequences, length)
+        sequences, target = batch  # target is class index
+        logits = self(sequences)
         loss = self.criterion(logits, target)
         
         # Compute HR@10
@@ -138,8 +137,8 @@ class RCNN_NextItem(pl.LightningModule):
         return loss
     
     def validation_step(self, batch, batch_idx):
-        sequences, target, length = batch  # target is class index
-        logits = self(sequences, length)
+        sequences, target = batch  # target is class index
+        logits = self(sequences)
         loss = self.criterion(logits, target)
         
         # Compute HR@10
@@ -154,8 +153,8 @@ class RCNN_NextItem(pl.LightningModule):
         return loss
     
     def test_step(self, batch, batch_idx):
-        sequences, target, length = batch  # target is class index
-        logits = self(sequences, length)
+        sequences, target = batch  # target is class index
+        logits = self(sequences)
         loss = self.criterion(logits, target)
         
         # Compute HR@10

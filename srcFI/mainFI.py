@@ -1,14 +1,14 @@
 import argparse
 import os
 import torch
-from srcFI.datamoduleFI import RecommendationDataModule
-from srcFI.modelFI import RCNN_NextItem
+from datamoduleFI import RecommendationDataModule
+from modelFI import RCNN_NextItem
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning import Trainer
-from srcFI.hparamFI import Hyperparameters
+from hparamFI import Hyperparameters
 import json
-#Meow
+#mainFI.py
 def train_model(check_mode: bool) -> None:
     message = '-' * 20 + 'Running in check mode:' + '-' * 20 if check_mode else '-' * 20 + 'Running in real mode:' + '-' * 20
     print(message)
@@ -25,7 +25,7 @@ def train_model(check_mode: bool) -> None:
     data_module = RecommendationDataModule(
         user_sequences=user_sequences,
         num_items=num_items,
-        min_sequence_length=Hyperparameters.min_sequence_length,
+        sequence_length=Hyperparameters.sequence_length,
         batch_size=Hyperparameters.batch_size,
         train_ratio=Hyperparameters.train_ratio,
         val_ratio=Hyperparameters.val_ratio,

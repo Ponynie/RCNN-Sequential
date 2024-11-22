@@ -21,7 +21,7 @@ class Hyperparameters:
     
     #* Time-series Hyperparameters
     n = 8 # horizontal_conv_out_channels
-    w = 64 # horizontal_filter_size # with latent factor
+    w = 64 # horizontal_filter_size 
     k = 4 # vertical_filter_size
     min_sequence_length = k
     future_window = 10
